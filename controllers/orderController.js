@@ -1,7 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
-const Event = require('../models/Event'); // 🔥 IMPORT EVENT MODEL
-const { sendTelegramMessage, notifySuperAdmin } = require('../utils/telegramService');
+const Event = require('../models/Event');
+const { sendTelegramMessage, notifySuperAdmin } = require('../utils/telegramService'); // 🔥 Ensure this import is correct
 
 // 1. Get All Orders
 const getOrders = async (req, res) => {
@@ -30,7 +30,7 @@ const verifyPayment = async (req, res) => {
 
     order.status = 'pool'; 
 
-    // --- 🔥 FIX: EVENT CREW REGISTRATION ---
+    // --- EVENT CREW REGISTRATION ---
     if (order.orderType === 'event' && order.packageDetails.mode === 'crew') { 
          // 1. Generate Code
          const code = "TEAM-" + Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -40,18 +40,16 @@ const verifyPayment = async (req, res) => {
          const event = await Event.findById(order.packageDetails.eventId);
          
          if(event) {
-             // Create Crew Object
              const newCrew = {
                  name: order.crewName || `${order.customer.name}'s Team`,
                  leaderId: order.userId,
                  leaderName: order.customer.name,
                  crewCode: code,
-                 // Leader automatically becomes the first member
                  members: [{ userId: order.userId, name: order.customer.name }]
              };
 
              event.crews.push(newCrew);
-             await event.save(); // Save Event with new Crew
+             await event.save();
              console.log("Crew Registered:", newCrew);
          }
     }
@@ -79,6 +77,7 @@ const assignOrder = async (req, res) => {
 
     const adminUser = await User.findById(adminId);
     if (adminUser && adminUser.telegramChatId) {
+      // Notify the specific admin assigned
       sendTelegramMessage(adminUser.telegramChatId, `🚨 Job Assigned: ${order.packageDetails.title}`);
     }
     res.json(order);
@@ -101,7 +100,7 @@ const updateJobStatus = async (req, res) => {
   }
 };
 
-// 5. Create Order
+// 5. Create Order (🔥 UPDATED WITH TELEGRAM NOTIFICATION)
 const createOrder = async (req, res) => {
   const { userId, customer, packageDetails, paymentSlip, orderType, crewName } = req.body; 
 
@@ -112,14 +111,34 @@ const createOrder = async (req, res) => {
       packageDetails,
       paymentSlip,
       orderType: orderType || 'service',
-      crewName: crewName || null, // Save Crew Name from frontend
+      crewName: crewName || null,
       status: 'pending'
     });
 
     const savedOrder = await newOrder.save();
-    notifySuperAdmin(`🚨 New Order: ${packageDetails.title}`);
+
+    // --- 🔥 SEND TELEGRAM NOTIFICATION TO SUPER ADMIN ---
+    const message = `
+<b>🚀 NEW ORDER RECEIVED!</b>
+
+<b>🆔 Order ID:</b> #${savedOrder._id.toString().slice(-4)}
+<b>👤 Customer:</b> ${savedOrder.customer.name}
+<b>📞 Contact:</b> ${savedOrder.customer.contact}
+<b>📦 Item:</b> ${savedOrder.packageDetails.title}
+<b>💰 Price:</b> LKR ${savedOrder.packageDetails.price}
+<b>📂 Type:</b> ${savedOrder.orderType.toUpperCase()}
+${savedOrder.crewName ? `<b>🏆 Crew:</b> ${savedOrder.crewName}` : ''}
+
+<i>Please check Admin Panel to verify slip.</i>
+    `;
+
+    // Call the service function
+    await notifySuperAdmin(message);
+    // ----------------------------------------------------
+
     res.status(201).json(savedOrder);
   } catch (error) {
+    console.error("Order Creation Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
