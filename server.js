@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 const { saveMessage } = require('./controllers/chatController'); 
 const Feedback = require('./models/Feedback');
+const CommunityMessage = require('./models/CommunityMessage');
 
 
 // 🔥 1. IMPORT SETTING MODEL
@@ -97,6 +98,9 @@ app.delete('/api/feedbacks/:id', async (req, res) => {
         res.json({ message: "Deleted" });
     } catch (err) { res.status(500).json(err); }
 });
+
+
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
