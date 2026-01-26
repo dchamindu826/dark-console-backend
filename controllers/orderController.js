@@ -1,7 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Event = require('../models/Event');
-const { sendTelegramMessage, notifySuperAdmin } = require('../utils/telegramService'); // 🔥 Ensure this import is correct
+const { sendTelegramMessage, notifySuperAdmin } = require('../utils/telegramService');
 
 // 1. Get All Orders
 const getOrders = async (req, res) => {
@@ -11,8 +11,12 @@ const getOrders = async (req, res) => {
     if (status) query.status = status;
     if (type && type !== 'all') query.orderType = type;
     
+    // Normal admins see only unassigned (pool) or their own jobs (unless super admin override logic is here, 
+    // but usually getOrders is for the main list, so we keep basic filtering)
     if (req.user.role === 'admin') {
-        query.assignedAdmin = req.user._id;
+        // Option: Decide if normal admins can see ALL orders or just theirs. 
+        // Usually, for "Orders" page, they might need to see Pool items to pick.
+        // Keeping this flexible based on your existing logic.
     }
 
     const orders = await Order.find(query).populate('assignedAdmin', 'username').sort({ createdAt: -1 });
@@ -100,7 +104,7 @@ const updateJobStatus = async (req, res) => {
   }
 };
 
-// 5. Create Order (🔥 UPDATED WITH TELEGRAM NOTIFICATION)
+// 5. Create Order (🔥 UPDATED TELEGRAM MESSAGE STYLE)
 const createOrder = async (req, res) => {
   const { userId, customer, packageDetails, paymentSlip, orderType, crewName } = req.body; 
 
@@ -117,20 +121,24 @@ const createOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    // --- 🔥 SEND TELEGRAM NOTIFICATION TO SUPER ADMIN ---
+    // --- 🔥 REFORMATTED TELEGRAM MESSAGE ---
+    // Using clean HTML formatting without indentation issues
     const message = `
-<b>🚀 NEW ORDER RECEIVED!</b>
+<b>🔔 NEW ORDER ALERT</b>
+━━━━━━━━━━━━━━━━━━━
+<b>👤 Customer:</b> ${savedOrder.customer.name}
+<b>📞 Mobile:</b> ${savedOrder.customer.contact}
+
+<b>📦 Package Details</b>
+<b>• Item:</b> ${savedOrder.packageDetails.title}
+<b>• Price:</b> LKR ${savedOrder.packageDetails.price}
+<b>• Type:</b> ${savedOrder.orderType.toUpperCase()}
+${savedOrder.crewName ? `<b>• Crew:</b> ${savedOrder.crewName}` : ''}
 
 <b>🆔 Order ID:</b> #${savedOrder._id.toString().slice(-4)}
-<b>👤 Customer:</b> ${savedOrder.customer.name}
-<b>📞 Contact:</b> ${savedOrder.customer.contact}
-<b>📦 Item:</b> ${savedOrder.packageDetails.title}
-<b>💰 Price:</b> LKR ${savedOrder.packageDetails.price}
-<b>📂 Type:</b> ${savedOrder.orderType.toUpperCase()}
-${savedOrder.crewName ? `<b>🏆 Crew:</b> ${savedOrder.crewName}` : ''}
-
-<i>Please check Admin Panel to verify slip.</i>
-    `;
+━━━━━━━━━━━━━━━━━━━
+<i>👉 Please login to Admin Panel to verify slip.</i>
+`;
 
     // Call the service function
     await notifySuperAdmin(message);
@@ -156,20 +164,81 @@ const getUserOrders = async (req, res) => {
     }
 };
 
-// 7. Stats
+// 7. Get Admin Stats (🔥 SUPER ADMIN vs NORMAL ADMIN LOGIC)
 const getAdminStats = async (req, res) => {
     try {
-        const adminId = req.user._id;
-        const assigned = await Order.countDocuments({ assignedAdmin: adminId, status: 'in_progress' });
-        const completed = await Order.countDocuments({ assignedAdmin: adminId, status: 'completed' });
-        const cancelled = await Order.countDocuments({ assignedAdmin: adminId, status: 'cancelled' });
+        const { role, _id } = req.user;
+
+        // --- A. NORMAL ADMIN STATS ---
+        if (role !== 'super-admin') {
+            const assigned = await Order.countDocuments({ assignedAdmin: _id, status: 'in_progress' });
+            const completed = await Order.countDocuments({ assignedAdmin: _id, status: 'completed' });
+            const cancelled = await Order.countDocuments({ assignedAdmin: _id, status: 'cancelled' });
+            
+            // Pool count (Orders waiting to be picked)
+            const poolCount = await Order.countDocuments({ status: 'pool' });
+
+            return res.json({ 
+                role: 'admin',
+                assigned, 
+                completed, 
+                cancelled,
+                poolCount
+            });
+        }
+
+        // --- B. SUPER ADMIN STATS ---
         
-        const totalRevenue = await Order.aggregate([
+        // 1. Total Counts
+        const activeAdmins = await User.countDocuments({ role: { $in: ['admin', 'super-admin'] } });
+        const completedOrders = await Order.countDocuments({ status: 'completed' });
+        
+        // 2. Revenue Calculation (Total, Events, Services)
+        const revenueStats = await Order.aggregate([
             { $match: { status: 'completed' } },
-            { $group: { _id: null, total: { $sum: "$packageDetails.price" } } }
+            { 
+                $group: { 
+                    _id: null, 
+                    totalRevenue: { $sum: "$packageDetails.price" },
+                    eventRevenue: { 
+                        $sum: { 
+                            $cond: [{ $eq: ["$orderType", "event"] }, "$packageDetails.price", 0] 
+                        } 
+                    },
+                    serviceRevenue: { 
+                        $sum: { 
+                            $cond: [{ $eq: ["$orderType", "service"] }, "$packageDetails.price", 0] 
+                        } 
+                    }
+                } 
+            }
         ]);
 
-        res.json({ assigned, completed, cancelled, totalRevenue: totalRevenue[0]?.total || 0 });
+        const totalRev = revenueStats[0] || { totalRevenue: 0, eventRevenue: 0, serviceRevenue: 0 };
+
+        // 3. Chart Data (Last 30 days revenue trend)
+        const chartData = await Order.aggregate([
+            { $match: { status: 'completed' } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    income: { $sum: "$packageDetails.price" }
+                }
+            },
+            { $sort: { _id: 1 } },
+            { $limit: 30 }
+        ]);
+
+        res.json({
+            role: 'super-admin',
+            activeAdmins,
+            completedOrders,
+            totalRevenue: totalRev.totalRevenue,
+            eventRevenue: totalRev.eventRevenue,
+            serviceRevenue: totalRev.serviceRevenue,
+            chartData
+        });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
