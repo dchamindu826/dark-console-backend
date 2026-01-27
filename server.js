@@ -8,11 +8,13 @@ const { saveMessage } = require('./controllers/chatController');
 const Feedback = require('./models/Feedback');
 const CommunityMessage = require('./models/CommunityMessage');
 const Setting = require('./models/Setting'); 
+const ChatMessage = require('./models/ChatMessage'); // 🔥 Import Model
 
 connectDB();
 const app = express();
 
 app.use(cors());
+// 🔥 Increased limit to handle Images in Chat
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -102,8 +104,10 @@ io.on('connection', (socket) => {
     socket.join(room);
   });
 
+  // 🔥 Updated to handle Image/Reply data pass-through
   socket.on('send_message', async (data) => {
-    const savedMsg = await saveMessage(data);
+    // data contains: { room, author, message, image, replyTo, type }
+    const savedMsg = await saveMessage(data); 
     if(savedMsg) {
         io.to(data.room).emit('receive_message', savedMsg);
     }
