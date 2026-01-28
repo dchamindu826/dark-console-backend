@@ -1,17 +1,15 @@
 const mongoose = require('mongoose');
 
-const chatSchema = new mongoose.Schema({
-  room: { type: String, required: true, index: true }, // Optimized for search
-  author: { type: String, required: true },
+const chatMessageSchema = new mongoose.Schema({
+  room: { type: String, required: true },
+  orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+  author: { type: String }, 
+  senderId: { type: String },
+  senderName: { type: String },
   message: { type: String },
-  type: { type: String, default: 'text' }, // 'text' or 'image'
-  attachment: { type: String, default: null }, // Base64 string for Image
-  replyTo: { // For Replies
-      id: String,
-      author: String,
-      message: String
-  },
-  createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto delete after 24 Hours
-}, { timestamps: true });
+  image: { type: String }, // For Base64 Images
+  type: { type: String, default: 'text' },
+  isAdmin: { type: Boolean, default: false },
+}, { timestamps: true }); // createdAt ඉබේම හැදෙනවා
 
-module.exports = mongoose.model('Chat', chatSchema);
+module.exports = mongoose.model('ChatMessage', chatMessageSchema);

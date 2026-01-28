@@ -243,7 +243,7 @@ const getAdminStats = async (req, res) => {
 const getOrderMessages = async (req, res) => {
   try {
     const { id } = req.params;
-    // Find messages for this order ID
+    // ChatMessage model එක උඩින් import කරලා තියෙන්න ඕන
     const messages = await ChatMessage.find({ orderId: id }).sort({ createdAt: 1 });
     res.json(messages);
   } catch (error) {
