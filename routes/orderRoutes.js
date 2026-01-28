@@ -8,8 +8,8 @@ const {
     createOrder, 
     getUserOrders,
     getAdminStats,
-    getOrderPaymentSlip, 
-    getOrderMessages // 🔥 අලුතින් එකතු කළා (Controller එකෙන් Import කරා)
+    getOrderPaymentSlip,
+    getOrderMessages // 🔥 Import added
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -17,11 +17,9 @@ const { protect, admin } = require('../middleware/authMiddleware');
 router.post('/', createOrder);
 router.get('/myorders', getUserOrders); 
 
-// 🔥 Payment Slip Image Route
+// Image & Message Routes (Public/Protected logic handled in controller/middleware)
 router.get('/:id/payment-slip', getOrderPaymentSlip);
-
-// 🔥 Chat Messages Route (මේක නැති නිසා තමයි 404 ආවේ - දැන් හරි)
-router.get('/:id/messages', getOrderMessages);
+router.get('/:id/messages', getOrderMessages); // 🔥 This fixes the 404 Error
 
 // --- ADMIN ROUTES ---
 router.get('/admin/stats', protect, admin, getAdminStats); 
