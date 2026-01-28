@@ -18,7 +18,8 @@ const allowedOrigins = [
   "https://dark-console.com",       // Oyage Domain eka
   "https://www.dark-console.com",   // WWW ekka
   "http://localhost:5173",          // Local React App (Dev walata)
-  "http://localhost:5000"           // Local Backend check
+  "http://localhost:5000",        // Local Backend check
+  "https://dark-console-frontend-6zaujfent-dchamindu826s-projects.vercel.app"
 ];
 
 app.use(cors({
