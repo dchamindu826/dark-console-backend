@@ -13,13 +13,26 @@ const getChats = async (req, res) => {
 
 // 2. Save Message (Called internally by Socket)
 const saveMessage = async (data) => {
-    try {
-        const newChat = new Chat(data);
-        return await newChat.save();
-    } catch (error) {
-        console.error("Chat Save Error:", error);
-        return null;
-    }
+  try {
+    const newMessage = new ChatMessage({
+      room: data.room,
+      orderId: data.orderId,
+      author: data.author,
+      senderId: data.senderId,
+      senderName: data.senderName,
+      message: data.message,
+      // 🔥 මේ ලයින් එක තියෙනවද බලන්න:
+      image: data.image, 
+      type: data.type || 'text',
+      isAdmin: data.isAdmin
+    });
+    
+    await newMessage.save();
+    return newMessage;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
 };
 
 module.exports = { getChats, saveMessage };
