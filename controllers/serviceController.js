@@ -1,11 +1,14 @@
 // හරියටම බලන්න මේ පාත් එක හරිද කියලා (../models/Service)
 const Service = require('../models/Service'); 
 
-// 1. Get All Services (මේකේ තමයි 500 Error එක එන්නේ)
+// 1. Get All Services (UPDATE: .select('-image') added to fix slow loading)
 const getServices = async (req, res) => {
   try {
-    // Database එකෙන් Data ගන්නවා
-    const services = await Service.find().sort({ createdAt: -1 });
+    // Database එකෙන් Data ගන්නවා, හැබැයි Image එක අතහැරලා (Speed එක වැඩි කරන්න)
+    const services = await Service.find()
+        .select('-image') // 🔥 මෙම කොටස අලුතින් එකතු කරන ලදී
+        .sort({ createdAt: -1 });
+        
     res.json(services);
   } catch (error) {
     console.error("Error in getServices:", error); // Terminal එකේ Error එක පෙන්නන්න
@@ -13,7 +16,7 @@ const getServices = async (req, res) => {
   }
 };
 
-// 2. Create Service (මේකේ තමයි 400 Error එක එන්නේ)
+// 2. Create Service (කිසිම වෙනසක් කර නැත - Image Upload දිගටම වැඩ)
 const createService = async (req, res) => {
   const { title, description, price, category, image } = req.body;
 
