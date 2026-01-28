@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getLeaderboard, updateRank } = require('../controllers/leaderboardController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { getLeaderboard, getPlayerImage, addPlayer } = require('../controllers/leaderboardController');
 
-router.get('/', getLeaderboard); // Public
-router.post('/', protect, admin, updateRank); // Admin Only
+// Get List (Text only)
+router.get('/', getLeaderboard);
+
+// 🔥 NEW: Image Link Route
+router.get('/:id/image', getPlayerImage);
+
+// Create Player
+router.post('/', addPlayer);
 
 module.exports = router;
