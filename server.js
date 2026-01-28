@@ -22,9 +22,14 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
+    
   origin: allowedOrigins,
   credentials: true
 }));
+app.get('/', (req, res) => {
+  res.send('API is Running Successfully on VPS! 🔥');
+});
+
 
 // 🔥 Increased limit to handle Images in Chat
 app.use(express.json({ limit: '50mb' })); 
