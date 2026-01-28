@@ -1,9 +1,10 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Event = require('../models/Event');
+const ChatMessage = require('../models/ChatMessage'); // 🔥 මේක නැති නිසා තමයි Server එක Crash වුනේ!
 const { sendTelegramMessage, notifySuperAdmin } = require('../utils/telegramService');
 
-// 1. Get All Orders (Updated: .select('-paymentSlip') for Speed 🚀)
+// 1. Get All Orders
 const getOrders = async (req, res) => {
   const { status, type } = req.query;
   try {
@@ -11,23 +12,22 @@ const getOrders = async (req, res) => {
     if (status) query.status = status;
     if (type && type !== 'all') query.orderType = type;
     
+    // Admin logic if needed
     if (req.user.role === 'admin') {
-        // Logic for normal admin if needed
+        // ...
     }
 
-    // 🔥 Image එක අයින් කරලා ලිස්ට් එක ගන්නවා (Fast Load)
     const orders = await Order.find(query)
         .select('-paymentSlip') 
         .populate('assignedAdmin', 'username')
         .sort({ createdAt: -1 });
-        
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 🔥 NEW: Serve Payment Slip Image
+// 2. Serve Payment Slip Image
 const getOrderPaymentSlip = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -36,7 +36,6 @@ const getOrderPaymentSlip = async (req, res) => {
        return res.status(404).send('Slip not found');
     }
 
-    // Base64 String -> Image File
     let mimeType = 'image/png';
     let base64Data = order.paymentSlip;
 
@@ -62,7 +61,7 @@ const getOrderPaymentSlip = async (req, res) => {
   }
 };
 
-// 2. Verify Payment (Approve & Register Team in Event)
+// 3. Verify Payment
 const verifyPayment = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -70,13 +69,10 @@ const verifyPayment = async (req, res) => {
 
     order.status = 'pool'; 
 
-    // --- EVENT CREW REGISTRATION ---
     if (order.orderType === 'event' && order.packageDetails.mode === 'crew') { 
-          // 1. Generate Code
           const code = "TEAM-" + Math.random().toString(36).substring(2, 7).toUpperCase();
           order.crewCode = code;
 
-          // 2. Add Team to Event Model
           const event = await Event.findById(order.packageDetails.eventId);
           
           if(event) {
@@ -90,20 +86,17 @@ const verifyPayment = async (req, res) => {
 
               event.crews.push(newCrew);
               await event.save();
-              console.log("Crew Registered:", newCrew);
           }
     }
-    // ---------------------------------------
 
     await order.save();
     res.json(order);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// 3. Assign Order
+// 4. Assign Order
 const assignOrder = async (req, res) => {
   const { adminId } = req.body;
   try {
@@ -117,7 +110,6 @@ const assignOrder = async (req, res) => {
 
     const adminUser = await User.findById(adminId);
     if (adminUser && adminUser.telegramChatId) {
-      // Notify the specific admin assigned
       sendTelegramMessage(adminUser.telegramChatId, `🚨 Job Assigned: ${order.packageDetails.title}`);
     }
     res.json(order);
@@ -126,7 +118,7 @@ const assignOrder = async (req, res) => {
   }
 };
 
-// 4. Update Job Status
+// 5. Update Job Status
 const updateJobStatus = async (req, res) => {
   const { status, reason } = req.body;
   try {
@@ -140,7 +132,7 @@ const updateJobStatus = async (req, res) => {
   }
 };
 
-// 5. Create Order
+// 6. Create Order
 const createOrder = async (req, res) => {
   const { userId, customer, packageDetails, paymentSlip, orderType, crewName } = req.body; 
 
@@ -149,7 +141,7 @@ const createOrder = async (req, res) => {
       userId: userId || null,
       customer,
       packageDetails,
-      paymentSlip, // Saves Base64 to DB (Standard upload)
+      paymentSlip,
       orderType: orderType || 'service',
       crewName: crewName || null,
       status: 'pending'
@@ -157,26 +149,17 @@ const createOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    // --- TELEGRAM MESSAGE ---
     const message = `
 <b>🔔 NEW ORDER ALERT</b>
 ━━━━━━━━━━━━━━━━━━━
 <b>👤 Customer:</b> ${savedOrder.customer.name}
 <b>📞 Mobile:</b> ${savedOrder.customer.contact}
-
-<b>📦 Package Details</b>
-<b>• Item:</b> ${savedOrder.packageDetails.title}
-<b>• Price:</b> LKR ${savedOrder.packageDetails.price}
-<b>• Type:</b> ${savedOrder.orderType.toUpperCase()}
-${savedOrder.crewName ? `<b>• Crew:</b> ${savedOrder.crewName}` : ''}
-
+<b>📦 Package:</b> ${savedOrder.packageDetails.title}
+<b>💰 Price:</b> LKR ${savedOrder.packageDetails.price}
 <b>🆔 Order ID:</b> #${savedOrder._id.toString().slice(-4)}
-━━━━━━━━━━━━━━━━━━━
-<i>👉 Please login to Admin Panel to verify slip.</i>
 `;
 
     await notifySuperAdmin(message);
-
     res.status(201).json(savedOrder);
   } catch (error) {
     console.error("Order Creation Error:", error);
@@ -184,23 +167,22 @@ ${savedOrder.crewName ? `<b>• Crew:</b> ${savedOrder.crewName}` : ''}
   }
 };
 
-// 6. Get User Orders (Updated: .select('-paymentSlip'))
+// 7. Get User Orders
 const getUserOrders = async (req, res) => {
     try {
         const userId = req.query.uid || (req.user ? req.user._id : null);
         if (!userId) return res.status(400).json({ message: "User ID missing" });
 
         const orders = await Order.find({ userId: userId })
-            .select('-paymentSlip') // 🔥 Image එක අතහරිනවා
+            .select('-paymentSlip') 
             .sort({ createdAt: -1 });
-            
         res.json(orders);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// 7. Get Admin Stats
+// 8. Get Admin Stats
 const getAdminStats = async (req, res) => {
     try {
         const { role, _id } = req.user;
@@ -210,7 +192,6 @@ const getAdminStats = async (req, res) => {
             const completed = await Order.countDocuments({ assignedAdmin: _id, status: 'completed' });
             const cancelled = await Order.countDocuments({ assignedAdmin: _id, status: 'cancelled' });
             const poolCount = await Order.countDocuments({ status: 'pool' });
-
             return res.json({ role: 'admin', assigned, completed, cancelled, poolCount });
         }
 
@@ -258,7 +239,20 @@ const getAdminStats = async (req, res) => {
     }
 };
 
+// 🔥 9. NEW: Get Chat Messages (Fix for 404 Error)
+const getOrderMessages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Find messages for this order ID
+    const messages = await ChatMessage.find({ orderId: id }).sort({ createdAt: 1 });
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 module.exports = { 
     getOrders, verifyPayment, assignOrder, updateJobStatus, createOrder, 
-    getUserOrders, getAdminStats, getOrderPaymentSlip // 🔥 Export new function
+    getUserOrders, getAdminStats, getOrderPaymentSlip, getOrderMessages // 🔥 Export added
 };
