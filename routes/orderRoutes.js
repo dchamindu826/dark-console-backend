@@ -8,7 +8,8 @@ const {
     createOrder, 
     getUserOrders,
     getAdminStats,
-    getOrderPaymentSlip // 🔥 Import
+    getOrderPaymentSlip, 
+    getOrderMessages // 🔥 අලුතින් එකතු කළා (Controller එකෙන් Import කරා)
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -16,8 +17,11 @@ const { protect, admin } = require('../middleware/authMiddleware');
 router.post('/', createOrder);
 router.get('/myorders', getUserOrders); 
 
-// 🔥 NEW: Image Link Route (Public access allow kara img tag eka wada karanna)
+// 🔥 Payment Slip Image Route
 router.get('/:id/payment-slip', getOrderPaymentSlip);
+
+// 🔥 Chat Messages Route (මේක නැති නිසා තමයි 404 ආවේ - දැන් හරි)
+router.get('/:id/messages', getOrderMessages);
 
 // --- ADMIN ROUTES ---
 router.get('/admin/stats', protect, admin, getAdminStats); 
