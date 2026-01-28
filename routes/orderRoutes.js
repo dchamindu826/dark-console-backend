@@ -7,7 +7,8 @@ const {
     updateJobStatus, 
     createOrder, 
     getUserOrders,
-    getAdminStats // 🔥 IMPORTANT: Import this function
+    getAdminStats,
+    getOrderPaymentSlip // 🔥 Import
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -15,8 +16,10 @@ const { protect, admin } = require('../middleware/authMiddleware');
 router.post('/', createOrder);
 router.get('/myorders', getUserOrders); 
 
+// 🔥 NEW: Image Link Route (Public access allow kara img tag eka wada karanna)
+router.get('/:id/payment-slip', getOrderPaymentSlip);
+
 // --- ADMIN ROUTES ---
-// 🔥 Important: Place specific routes like '/admin/stats' BEFORE generic routes like '/:id'
 router.get('/admin/stats', protect, admin, getAdminStats); 
 
 router.get('/', protect, admin, getOrders);
