@@ -13,30 +13,32 @@ const ChatMessage = require('./models/ChatMessage');
 connectDB();
 const app = express();
 
-// 🔥 1. CORS CONFIGURATION (Allow your domain)
+// 🔥 1. CORS CONFIGURATION (Strictly allow your Vercel domain)
 const allowedOrigins = [
-  "https://dark-console.com",       // Oyage Domain eka
-  "https://www.dark-console.com",   // WWW ekka
-  "http://localhost:5173",          // Local React App (Dev walata)
-  "http://localhost:5000",        // Local Backend check
-  "https://dark-console-frontend-6zaujfent-dchamindu826s-projects.vercel.app"
+  "https://dark-console.com",       
+  "https://www.dark-console.com",   
+  "http://localhost:5173",          
+  "http://localhost:5000",
+  // 🔥 IMPORTANT: Add your Vercel Frontend URL exactly as it appears in the browser
+  "https://dark-console-frontend-6zaujfent-dchamindu826s-projects.vercel.app",
+  "https://dark-console-frontend.vercel.app" // Add this if you have a custom domain or main branch deployment
 ];
 
 app.use(cors({
-    
   origin: allowedOrigins,
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"] // Explicitly allow methods
 }));
-app.get('/', (req, res) => {
-  res.send('API is Running Successfully on VPS! 🔥');
-});
-
 
 // 🔥 Increased limit to handle Images in Chat
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- ROUTES ---
+app.get('/', (req, res) => {
+  res.send('API is Running Successfully on VPS! 🔥');
+});
+
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
