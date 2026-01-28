@@ -8,12 +8,24 @@ const { saveMessage } = require('./controllers/chatController');
 const Feedback = require('./models/Feedback');
 const CommunityMessage = require('./models/CommunityMessage');
 const Setting = require('./models/Setting'); 
-const ChatMessage = require('./models/ChatMessage'); // 🔥 Import Model
+const ChatMessage = require('./models/ChatMessage'); 
 
 connectDB();
 const app = express();
 
-app.use(cors());
+// 🔥 1. CORS CONFIGURATION (Allow your domain)
+const allowedOrigins = [
+  "https://dark-console.com",       // Oyage Domain eka
+  "https://www.dark-console.com",   // WWW ekka
+  "http://localhost:5173",          // Local React App (Dev walata)
+  "http://localhost:5000"           // Local Backend check
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 // 🔥 Increased limit to handle Images in Chat
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -27,8 +39,6 @@ app.use('/api/chats', require('./routes/chatRoutes'));
 app.use('/api/leaderboard', require('./routes/leaderboardRoutes'));
 
 // --- SETTINGS ROUTES ---
-
-// 1. Stream Link (Specific)
 app.get('/api/settings/stream', async (req, res) => {
     try {
         const setting = await Setting.findOne({ key: 'stream_link' });
@@ -40,15 +50,12 @@ app.post('/api/settings/stream', async (req, res) => {
     try {
         const { link } = req.body;
         const setting = await Setting.findOneAndUpdate(
-            { key: 'stream_link' },
-            { value: link },
-            { new: true, upsert: true }
+            { key: 'stream_link' }, { value: link }, { new: true, upsert: true }
         );
         res.json(setting);
     } catch (err) { res.status(500).json(err); }
 });
 
-// 2. Generic Settings (For WhatsApp/Discord/Other links)
 app.get('/api/settings/:key', async (req, res) => {
     try {
         const setting = await Setting.findOne({ key: req.params.key });
@@ -60,9 +67,7 @@ app.post('/api/settings/:key', async (req, res) => {
     try {
         const { value } = req.body;
         const setting = await Setting.findOneAndUpdate(
-            { key: req.params.key },
-            { value: value },
-            { new: true, upsert: true }
+            { key: req.params.key }, { value: value }, { new: true, upsert: true }
         );
         res.json(setting);
     } catch (err) { res.status(500).json(err); }
@@ -94,7 +99,11 @@ app.delete('/api/feedbacks/:id', async (req, res) => {
 // --- SOCKET.IO SETUP ---
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: { 
+    origin: allowedOrigins, // 🔥 Use same origins for Socket
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
 io.on('connection', (socket) => {
@@ -104,9 +113,7 @@ io.on('connection', (socket) => {
     socket.join(room);
   });
 
-  // 🔥 Updated to handle Image/Reply data pass-through
   socket.on('send_message', async (data) => {
-    // data contains: { room, author, message, image, replyTo, type }
     const savedMsg = await saveMessage(data); 
     if(savedMsg) {
         io.to(data.room).emit('receive_message', savedMsg);
@@ -146,11 +153,7 @@ app.get('/api/community/messages', async (req, res) => {
     res.json(messages);
 });
 
-// --- SERVER START (VERCEL COMPATIBLE) ---
+// --- SERVER START ---
 const PORT = process.env.PORT || 5000;
 
-if (process.env.VERCEL) {
-    module.exports = app;
-} else {
-    server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
