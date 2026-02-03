@@ -1,4 +1,4 @@
-const Leaderboard = require('../models/Leaderboard'); // Model path එක හරිද බලන්න
+const Leaderboard = require('../models/Leaderboard'); 
 
 // 1. Get All Players (Text Only - Super Fast 🚀)
 const getLeaderboard = async (req, res) => {
@@ -49,7 +49,7 @@ const getPlayerImage = async (req, res) => {
 
 // 3. Add Player (Uploads work as usual ✅)
 const addPlayer = async (req, res) => {
-  const { name, rank, points, image, game } = req.body; // ඔයාගේ fields අනුව මේවා වෙනස් වෙන්න පුළුවන්
+  const { name, rank, points, image, game } = req.body; 
 
   try {
     const newPlayer = new Leaderboard({ 
@@ -66,6 +66,14 @@ const addPlayer = async (req, res) => {
   }
 };
 
-// Delete, Update functions තිබ්බොත් ඒවා එහෙමම තියන්න...
+// 4. Delete Player (Missing in your code - Added here)
+const deletePlayer = async (req, res) => {
+  try {
+    await Leaderboard.findByIdAndDelete(req.params.id);
+    res.json({ message: "Player Deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-module.exports = { getLeaderboard, getPlayerImage, addPlayer };
+module.exports = { getLeaderboard, getPlayerImage, addPlayer, deletePlayer };
