@@ -1,10 +1,16 @@
 const mongoose = require('mongoose');
 
 const leaderboardSchema = new mongoose.Schema({
-  rank: { type: Number, required: true, unique: true }, // 1, 2, 3, 4, 5
-  name: { type: String, required: true }, // Player or Crew Name
-  points: { type: String, required: true }, // e.g., "2500"
-  avatar: { type: String, required: true } // Base64 Image
+  rank: { type: Number, required: true, unique: true }, 
+  name: { type: String, required: true }, 
+  points: { type: String, required: true }, 
+  
+  // 🔥 මෙතන කලින් තිබුනේ 'avatar' කියලා. අපි ඒක 'image' කළා Controller එකට ගැලපෙන්න.
+  image: { type: String, required: true }, 
+
+  // 🔥 Controller එකෙන් 'game' එකකුත් එවනවා, ඒකත් මෙතනට දාගමු.
+  game: { type: String, required: false } 
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Leaderboard', leaderboardSchema);
